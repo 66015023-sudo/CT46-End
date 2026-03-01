@@ -7,9 +7,9 @@ import base64
 import os
 import random
 
-# --- 1. ใส่ API ของคุณตรงนี้ ---
-SHEETDB_URL = "https://sheetdb.io/api/v1/ใส่_ID_ของ_SHEETDB_ตรงนี้" 
-IMGBB_API_KEY = "ใส่_API_KEY_ของ_IMGBB_ตรงนี้"
+# --- 1. ใส่ API ของคุณตรงนี้ (อัปเดตแล้ว!) ---
+SHEETDB_URL = "https://sheetdb.io/api/v1/6141z8nhjv07m" 
+IMGBB_API_KEY = "104f3d1f3d07a02f98c90c3ac0f60d9d"
 
 # --- 2. การตั้งค่าพื้นฐาน ---
 CLASS_NAME = "CT46"
@@ -67,10 +67,8 @@ def render_floating_comments():
     if df_comments.empty:
         return
 
-    # ดึงคอมเมนต์มาแสดงผล (เอาแค่ 15 ข้อความล่าสุด จะได้ไม่รกจอเกินไป)
     recent_comments = df_comments.tail(15)["ข้อความ"].tolist()
     
-    # สร้าง CSS สำหรับอนิเมชั่น
     css_animation = """
     <style>
     .floating-container {
@@ -79,7 +77,7 @@ def render_floating_comments():
         left: 0;
         width: 100vw;
         height: 100vh;
-        pointer-events: none; /* ทำให้คลิกทะลุข้อความได้ ไม่บังปุ่ม */
+        pointer-events: none;
         z-index: 9999;
         overflow: hidden;
     }
@@ -88,7 +86,7 @@ def render_floating_comments():
         white-space: nowrap;
         font-size: 28px;
         font-weight: bold;
-        color: #FFD700; /* สีทอง */
+        color: #FFD700;
         text-shadow: 2px 2px 4px #000000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
         opacity: 0.9;
     }
@@ -101,16 +99,14 @@ def render_floating_comments():
     
     html_comments = '<div class="floating-container">'
     for i, text in enumerate(recent_comments):
-        # สุ่มตำแหน่งความสูง (Top) และความเร็ว (Duration) ให้ข้อความดูเป็นธรรมชาติ
-        top_pos = random.randint(10, 80) # 10% ถึง 80% ของหน้าจอ
-        duration = random.randint(10, 20) # วิ่งผ่านจอใช้เวลา 10-20 วินาที
-        delay = random.randint(0, 10) # ดีเลย์ก่อนเริ่มวิ่ง
+        top_pos = random.randint(10, 80)
+        duration = random.randint(10, 20)
+        delay = random.randint(0, 10)
         
         style = f"top: {top_pos}%; animation: floatLeft {duration}s linear {delay}s infinite;"
         html_comments += f'<div class="floating-text" style="{style}">{text}</div>'
     html_comments += '</div>'
 
-    # แทรก CSS และ HTML ลงไปใน Streamlit
     st.markdown(css_animation + html_comments, unsafe_allow_html=True)
 
 # โหลดข้อมูลและแสดงอนิเมชั่น
@@ -118,7 +114,6 @@ df_display = load_data()
 current_people = len(df_display)
 current_money = df_display["จำนวนเงิน"].sum() if not df_display.empty else 0
 
-# เรียกใช้ฟังก์ชันข้อความลอย
 render_floating_comments()
 
 # --- ส่วนหัวและสรุปความคืบหน้า ---
