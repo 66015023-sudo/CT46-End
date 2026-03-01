@@ -113,7 +113,7 @@ with tab_reg:
     col_form, col_bank = st.columns([2, 1])
     with col_bank:
         st.subheader("🏦 ช่องทางชำระเงิน")
-        st.info(f"**ธนาคาร:** กสิกรไทย\n\n**เลขบัญชี:** xxx-x-xxxxx-x\n\n**ชื่อบัญชี:** นาย... (CT46)")
+        st.info(f"คิวอาร์โค้ดในกลุ่ม")
 
     with col_form:
         st.subheader("➕ แจ้งโอนเงินที่นี่")
@@ -188,3 +188,4 @@ with tab_comment:
                 st.success("ส่งข้อความสำเร็จ! รีเฟรชหน้าเว็บ 1 รอบเพื่อดูข้อความลอยได้เลยครับ")
             else:
                 st.error("กรุณาพิมพ์ข้อความก่อนกดส่งครับ")
+
