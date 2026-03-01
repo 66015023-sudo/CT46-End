@@ -4,6 +4,8 @@ from datetime import datetime
 import plotly.express as px
 import requests
 import base64
+import os
+import random
 
 # --- 1. ใส่ API ของคุณตรงนี้ ---
 SHEETDB_URL = "https://sheetdb.io/api/v1/ใส่_ID_ของ_SHEETDB_ตรงนี้" 
@@ -14,6 +16,7 @@ CLASS_NAME = "CT46"
 TARGET_AMOUNT_PER_PERSON = 419
 TOTAL_PEOPLE_TARGET = 75
 TOTAL_MONEY_TARGET = 26000
+COMMENTS_FILE = "comments_data.csv" # ไฟล์เก็บคอมเมนต์
 
 EXPENSE_DETAILS = {
     "ค่าอาหาร": 55,
@@ -23,7 +26,9 @@ EXPENSE_DETAILS = {
 
 st.set_page_config(page_title=f"เก็บเงินเลี้ยงรุ่น {CLASS_NAME}", page_icon="🥂", layout="wide")
 
-# ฟังก์ชันดึงข้อมูลจาก Google Sheets
+# ==========================================
+# ฟังก์ชันระบบฐานข้อมูล
+# ==========================================
 def load_data():
     try:
         response = requests.get(SHEETDB_URL)
@@ -31,14 +36,12 @@ def load_data():
             data = response.json()
             if data and "error" not in data:
                 df = pd.DataFrame(data)
-                # แปลงคอลัมน์จำนวนเงินให้เป็นตัวเลข
                 df['จำนวนเงิน'] = pd.to_numeric(df['จำนวนเงิน'], errors='coerce').fillna(0)
                 return df
     except Exception as e:
         st.error(f"เกิดข้อผิดพลาดในการดึงข้อมูล: {e}")
     return pd.DataFrame(columns=["วันที่แจ้ง", "ชื่อ", "จำนวนเงิน", "วันที่โอน", "ลิงก์สลิป", "หมายเหตุ"])
 
-# ฟังก์ชันอัปโหลดรูปไป ImgBB
 def upload_image(image_file):
     url = "https://api.imgbb.com/1/upload"
     payload = {
@@ -47,13 +50,76 @@ def upload_image(image_file):
     }
     res = requests.post(url, data=payload)
     if res.status_code == 200:
-        return res.json()['data']['url'] # คืนค่าเป็นลิงก์รูปภาพ
+        return res.json()['data']['url']
     return None
 
-# โหลดข้อมูลปัจจุบัน
+def load_comments():
+    if os.path.exists(COMMENTS_FILE):
+        return pd.read_csv(COMMENTS_FILE)
+    else:
+        return pd.DataFrame(columns=["วันที่", "ข้อความ"])
+
+# ==========================================
+# ฟังก์ชันสร้างอนิเมชั่นข้อความลอย (Danmaku)
+# ==========================================
+def render_floating_comments():
+    df_comments = load_comments()
+    if df_comments.empty:
+        return
+
+    # ดึงคอมเมนต์มาแสดงผล (เอาแค่ 15 ข้อความล่าสุด จะได้ไม่รกจอเกินไป)
+    recent_comments = df_comments.tail(15)["ข้อความ"].tolist()
+    
+    # สร้าง CSS สำหรับอนิเมชั่น
+    css_animation = """
+    <style>
+    .floating-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        pointer-events: none; /* ทำให้คลิกทะลุข้อความได้ ไม่บังปุ่ม */
+        z-index: 9999;
+        overflow: hidden;
+    }
+    .floating-text {
+        position: absolute;
+        white-space: nowrap;
+        font-size: 28px;
+        font-weight: bold;
+        color: #FFD700; /* สีทอง */
+        text-shadow: 2px 2px 4px #000000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+        opacity: 0.9;
+    }
+    @keyframes floatLeft {
+        from { transform: translateX(100vw); }
+        to { transform: translateX(-100%); }
+    }
+    </style>
+    """
+    
+    html_comments = '<div class="floating-container">'
+    for i, text in enumerate(recent_comments):
+        # สุ่มตำแหน่งความสูง (Top) และความเร็ว (Duration) ให้ข้อความดูเป็นธรรมชาติ
+        top_pos = random.randint(10, 80) # 10% ถึง 80% ของหน้าจอ
+        duration = random.randint(10, 20) # วิ่งผ่านจอใช้เวลา 10-20 วินาที
+        delay = random.randint(0, 10) # ดีเลย์ก่อนเริ่มวิ่ง
+        
+        style = f"top: {top_pos}%; animation: floatLeft {duration}s linear {delay}s infinite;"
+        html_comments += f'<div class="floating-text" style="{style}">{text}</div>'
+    html_comments += '</div>'
+
+    # แทรก CSS และ HTML ลงไปใน Streamlit
+    st.markdown(css_animation + html_comments, unsafe_allow_html=True)
+
+# โหลดข้อมูลและแสดงอนิเมชั่น
 df_display = load_data()
 current_people = len(df_display)
 current_money = df_display["จำนวนเงิน"].sum() if not df_display.empty else 0
+
+# เรียกใช้ฟังก์ชันข้อความลอย
+render_floating_comments()
 
 # --- ส่วนหัวและสรุปความคืบหน้า ---
 st.title(f"🥂 ระบบลงทะเบียนงานเลี้ยงรุ่น {CLASS_NAME}")
@@ -74,8 +140,8 @@ with col_prog2:
 
 st.divider()
 
-# --- แบ่งหน้าจอ ---
-tab_reg, tab_dash = st.tabs(["📝 แจ้งโอนเงิน", "📊 แดชบอร์ดสรุปยอด"])
+# --- แบ่งหน้าจอเป็น 3 แท็บ ---
+tab_reg, tab_dash, tab_comment = st.tabs(["📝 แจ้งโอนเงิน", "📊 แดชบอร์ดสรุปยอด", "💬 กระดานแสดงความคิดเห็น"])
 
 # ==========================================
 # TAB 1: แจ้งโอนเงิน
@@ -84,7 +150,7 @@ with tab_reg:
     col_form, col_bank = st.columns([2, 1])
     with col_bank:
         st.subheader("🏦 ช่องทางชำระเงิน")
-        st.info(f"**ธนาคาร:** กสิกรไทย\n\n**เลขบัญชี:** xxx-x-xxxxx-x\n\n**ชื่อบัญชี:** นาย... (CT46)")
+        st.info(f"คิวอาร์โค้ดในกลุ่ม")
 
     with col_form:
         st.subheader("➕ แจ้งโอนเงินที่นี่")
@@ -100,11 +166,8 @@ with tab_reg:
             if submit_button:
                 if name and uploaded_slip:
                     with st.spinner('กำลังบันทึกข้อมูลและอัปโหลดสลิป...'):
-                        # 1. อัปโหลดรูปไป ImgBB
                         slip_url = upload_image(uploaded_slip)
-                        
                         if slip_url:
-                            # 2. ส่งข้อมูลไป Google Sheets ผ่าน SheetDB
                             submission_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                             payload = {
                                 "data": {
@@ -119,7 +182,7 @@ with tab_reg:
                             res = requests.post(SHEETDB_URL, json=payload)
                             
                             if res.status_code == 201:
-                                st.success(f"บันทึกข้อมูลของ {name} สำเร็จ! ข้อมูลถูกส่งเข้า Google Sheets แล้ว 🎉")
+                                st.success(f"บันทึกข้อมูลสำเร็จ! ข้อมูลถูกส่งเข้าระบบแล้ว 🎉")
                                 st.info("กรุณารีเฟรชหน้าเว็บเพื่อดูยอดรวมอัปเดต")
                             else:
                                 st.error("บันทึกข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง")
@@ -152,15 +215,30 @@ with tab_dash:
 
         st.divider()
         st.subheader("📋 รายชื่อผู้ที่ชำระเงินแล้ว")
-        
-        # แสดงลิงก์สลิปให้กดดูได้เลย
-        st.data_editor(
-            df_display,
-            column_config={
-                "ลิงก์สลิป": st.column_config.LinkColumn("คลิกดูสลิป")
-            },
-            hide_index=True,
-            use_container_width=True
-        )
+        st.data_editor(df_display, column_config={"ลิงก์สลิป": st.column_config.LinkColumn("คลิกดูสลิป")}, hide_index=True, use_container_width=True)
     else:
         st.warning("ยังไม่มีข้อมูลการชำระเงิน")
+
+# ==========================================
+# TAB 3: คอมเมนต์ (ไม่ระบุตัวตน)
+# ==========================================
+with tab_comment:
+    st.subheader("💬 ปล่อยกระสุนข้อความ (Anonymous)")
+    st.write("พิมพ์ข้อความถึงเพื่อนๆ ได้เลย ข้อความจะลอยผ่านหน้าจอแบบไม่ระบุชื่อ!")
+    
+    with st.form("comment_form", clear_on_submit=True):
+        new_comment = st.text_input("พิมพ์ข้อความของคุณที่นี่ (สั้นๆ จะสวยกว่า):")
+        submit_comment = st.form_submit_button("ส่งข้อความลอยหน้าจอ 🚀")
+        
+        if submit_comment:
+            if new_comment.strip():
+                now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                comment_data = pd.DataFrame([[now_str, new_comment.strip()]], columns=["วันที่", "ข้อความ"])
+                
+                df_comments = load_comments()
+                df_comments = pd.concat([df_comments, comment_data], ignore_index=True)
+                df_comments.to_csv(COMMENTS_FILE, index=False, encoding='utf-8-sig')
+                
+                st.success("ส่งข้อความสำเร็จ! รีเฟรชหน้าเว็บ 1 รอบเพื่อดูข้อความลอยได้เลยครับ")
+            else:
+                st.error("กรุณาพิมพ์ข้อความก่อนกดส่งครับ")
